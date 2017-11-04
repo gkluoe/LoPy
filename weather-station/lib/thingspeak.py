@@ -1,29 +1,20 @@
-from network import WLAN
 import socket
 import ssl
 from time import sleep
+from wifi import WiFi
 
 class ThingSpeak(object):
     # Edit these to suit your particular situation
     api_key = None
-    ssid = None
-    auth = None 
-
     host = 'api.thingspeak.com'
-
-    wlan = WLAN(mode=WLAN.STA)
 
     sock = None
     ssock = None
     addr = None
 
-    def connect_wlan(self):
-        if not self.wlan.isconnected():
-            self.wlan.connect(ssid=self.ssid, auth=self.auth)
-            # Give it a chance to get connected
-            while not self.wlan.isconnected():
-                pass
-            print("Connected: \n", self.wlan.ifconfig())
+    config = None 
+
+    wifi = None
 
     def open_socket(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -36,17 +27,23 @@ class ThingSpeak(object):
                 s.close()
 
     def __init__(self, config):
+        self.config = config
+        self.wifi = WiFi(self.config)
+        self.wifi.connect_wifi()
         self.api_key = config['API_KEY']
-        self.ssid = config['WLAN_SSID']
-        self.auth = (WLAN.WPA2, config['WLAN_KEY'])
-        self.connect_wlan()
         self.addr = socket.getaddrinfo(self.host, 443)[0][-1]
         
-    def update(self, field_name, field_value):
-        self.connect_wlan()
+        
+    def update(self, data):
+        self.wifi.connect_wifi()
         self.open_socket()
 
-        path = '/update?api_key=' + self.api_key + '&' + field_name + '=' + str(field_value)
+        values = ''
+
+        for k in data.keys():
+           values = values+"&{}={}".format(k, data[k])
+           
+        path = '/update?api_key=' + self.api_key + values
 
         try: 
             msg = 'GET /' + path + ' HTTP/1.0\r\n\r\n'
